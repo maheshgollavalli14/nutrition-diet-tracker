@@ -24,7 +24,12 @@ allowedOrigins.add('http://127.0.0.1:5173');
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (
+        !origin ||
+        allowedOrigins.has(origin) ||
+        allowedOrigins.has('*') ||
+        origin.endsWith('.onrender.com')
+      ) {
         return callback(null, true);
       }
       return callback(null, false);

@@ -1,3 +1,5 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const mysql = require('mysql2/promise');
 const env = require('./env');
 
@@ -7,6 +9,7 @@ const pool = mysql.createPool({
   user: env.db.user,
   password: env.db.password,
   database: env.db.database,
+  ssl: env.db.ssl ? { rejectUnauthorized: false } : undefined,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -133,11 +136,41 @@ async function checkHealth() {
   }
 }
 
+async function initSchema() {
+  const health = await checkHealth();
+  if (health.connected && !health.schemaReady) {
+    console.log(`Missing database tables: ${health.missingTables.join(', ')}. Initializing schema...`);
+    const schemaPath = path.resolve(__dirname, '../../../database/schema.sql');
+    if (fs.existsSync(schemaPath)) {
+      const sql = fs.readFileSync(schemaPath, 'utf8');
+      const statements = sql
+        .split(/;\s*[\r\n]+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0 && !s.startsWith('--') && !s.toLowerCase().startsWith('use ') && !s.toLowerCase().startsWith('create database'));
+
+      const conn = await pool.getConnection();
+      try {
+        for (const stmt of statements) {
+          if (stmt.trim()) {
+            await conn.query(stmt);
+          }
+        }
+        console.log('Database schema and catalog seed initialized successfully.');
+      } catch (initErr) {
+        console.warn('Auto-schema initialization encountered warning/error:', initErr.message);
+      } finally {
+        conn.release();
+      }
+    }
+  }
+}
+
 module.exports = {
   pool,
   query,
   execute,
   withTransaction,
   checkHealth,
+  initSchema,
   classifyDbError,
 };

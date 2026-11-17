@@ -2,13 +2,16 @@ const app = require('./src/app');
 const env = require('./src/config/env');
 const db = require('./src/config/db');
 
-const server = app.listen(env.port, async () => {
-  console.log(`Nutrition & Diet Tracker API listening on http://localhost:${env.port}`);
+const server = app.listen(env.port, '0.0.0.0', async () => {
+  console.log(`Nutrition & Diet Tracker API listening on http://0.0.0.0:${env.port}`);
   const dbStatus = await db.checkHealth();
   if (dbStatus.connected) {
     console.log(
       `MySQL connected (${dbStatus.host}:${dbStatus.port}/${dbStatus.database}, MySQL ${dbStatus.version}, schemaReady=${dbStatus.schemaReady})`
     );
+    if (!dbStatus.schemaReady) {
+      await db.initSchema();
+    }
   } else {
     console.warn(
       `MySQL check failed at startup (${dbStatus.host}:${dbStatus.port}/${dbStatus.database}): ${dbStatus.error?.code || 'UNKNOWN'} - ${dbStatus.error?.hint || ''}`

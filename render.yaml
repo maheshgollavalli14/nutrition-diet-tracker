@@ -1,0 +1,58 @@
+services:
+  # 1. Backend Web Service
+  - type: web
+    name: nutrition-tracker-backend
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OPEN_FOOD_FACTS_BASE_URL
+        value: https://world.openfoodfacts.org/api/v2/product/
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: FRONTEND_ORIGIN
+        fromService:
+          type: web
+          name: nutrition-tracker-frontend
+          property: url
+      # Production Database Configuration
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: nutrition_tracker
+      - key: DB_SSL
+        value: "true"
+
+  # 2. Frontend Static Site
+  - type: web
+    name: nutrition-tracker-frontend
+    runtime: static
+    region: oregon
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: nutrition-tracker-backend
+          property: url
