@@ -1,5 +1,27 @@
 services:
-  # 1. Backend Web Service
+  # 1. Production MySQL 8.0 Database (Render Private Service with Persistent Storage)
+  - type: pserv
+    name: mysql-db
+    runtime: image
+    plan: starter
+    region: oregon
+    image:
+      url: docker.io/library/mysql:8.0
+    envVars:
+      - key: MYSQL_DATABASE
+        value: nutrition_tracker
+      - key: MYSQL_USER
+        value: nutrition_user
+      - key: MYSQL_PASSWORD
+        generateValue: true
+      - key: MYSQL_ROOT_PASSWORD
+        generateValue: true
+    disk:
+      name: mysql-data
+      mountPath: /var/lib/mysql
+      sizeGB: 10
+
+  # 2. Backend Web Service (Node.js + Express)
   - type: web
     name: nutrition-tracker-backend
     runtime: node
@@ -23,21 +45,27 @@ services:
           type: web
           name: nutrition-tracker-frontend
           property: url
-      # Production Database Configuration
+      # Internal connection to private MySQL service
       - key: DB_HOST
-        sync: false
+        fromService:
+          type: pserv
+          name: mysql-db
+          property: host
       - key: DB_PORT
         value: "3306"
       - key: DB_USER
-        sync: false
+        value: nutrition_user
       - key: DB_PASSWORD
-        sync: false
+        fromService:
+          type: pserv
+          name: mysql-db
+          envVarKey: MYSQL_PASSWORD
       - key: DB_NAME
         value: nutrition_tracker
       - key: DB_SSL
-        value: "true"
+        value: "false"
 
-  # 2. Frontend Static Site
+  # 3. Frontend Static Site (React 18 + Vite)
   - type: web
     name: nutrition-tracker-frontend
     runtime: static
